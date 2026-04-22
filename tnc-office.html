@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>TNC Office — Hệ thống quản trị</title>
 <meta name="theme-color" content="#2563EB">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --bg1:#ffffff;--bg2:#f8fafc;--bg3:#f1f5f9;
@@ -195,8 +196,31 @@ html[data-theme="dark"] .cal-day{background:var(--bg2)}
 </div>
 
 <script>
-/* ============== STATE & STORAGE ============== */
-const LS_KEY='tnc_office_v1';
+/* ============== SUPABASE CLIENT ============== */
+const SUPABASE_URL='https://xznpdflpcvodgbgashqs.supabase.co';
+const SUPABASE_KEY='sb_publishable_WZsa3PM7_KE0How_ER3a1Q_gHSvl28N';
+const SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* Field mappers: in-memory JS ↔ DB columns */
+const M_CUST={
+  toDb:c=>({id:c.id,name:c.name,phone:c.phone||null,email:c.email||null,company:c.company||null,package_id:c.package,seat_id:c.seat||null,fee:+c.fee||0,deposit:+c.deposit||0,start_date:c.start||null,end_date:c.end||null,status:c.status,note:c.note||null}),
+  fromDb:r=>({id:r.id,name:r.name,phone:r.phone||'',email:r.email||'',company:r.company||'',package:r.package_id,seat:r.seat_id||'',fee:+r.fee||0,deposit:+r.deposit||0,start:r.start_date,end:r.end_date,status:r.status,note:r.note||''})
+};
+const M_INC={
+  toDb:i=>({id:i.id,txn_date:i.date,customer_id:i.custId||null,category_id:i.cat,amount:+i.amount||0,method:i.method,note:i.note||null}),
+  fromDb:r=>({id:r.id,date:r.txn_date,custId:r.customer_id||'',cat:r.category_id,amount:+r.amount||0,method:r.method,note:r.note||''})
+};
+const M_EXP={
+  toDb:e=>({id:e.id,txn_date:e.date,category_id:e.cat,amount:+e.amount||0,note:e.note||null,paid_by:e.by||null}),
+  fromDb:r=>({id:r.id,date:r.txn_date,cat:r.category_id,amount:+r.amount||0,note:r.note||'',by:r.paid_by||''})
+};
+const M_BK={
+  toDb:b=>({id:b.id,book_date:b.date,start_time:b.start,end_time:b.end,room_id:b.room,customer_id:b.custId||null,purpose:b.purpose||null,status:b.status||'booked'}),
+  fromDb:r=>({id:r.id,date:r.book_date,start:r.start_time?.slice(0,5),end:r.end_time?.slice(0,5),room:r.room_id,custId:r.customer_id||'',purpose:r.purpose||'',status:r.status})
+};
+
+/* ============== STATE ============== */
+const LS_KEY='tnc_office_cache_v2';
 const PACKAGES={
   hot:{name:'Hot Desk',price:1500000,color:'pkg-hot',desc:'Chỗ ngồi linh hoạt'},
   ded:{name:'Dedicated Desk',price:3500000,color:'pkg-ded',desc:'Chỗ ngồi cố định'},
@@ -226,8 +250,38 @@ let UI={page:'dashboard',cust:{q:'',pkg:'',status:'',page:1,per:15,sort:{k:'name
         mr:{view:'calendar',date:toLocalISO(new Date()),room:'MR1'},
         admin:{tab:'packages'}};
 
-function save(){localStorage.setItem(LS_KEY,JSON.stringify(DB))}
-function load(){const s=localStorage.getItem(LS_KEY);if(s){try{DB=JSON.parse(s);return true}catch(e){}}return false}
+function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(DB))}catch(e){}}
+function loadCache(){const s=localStorage.getItem(LS_KEY);if(s){try{DB=JSON.parse(s);return true}catch(e){}}return false}
+
+async function loadDB(){
+  try{
+    const [cs,inc,exp,bk,seats,users]=await Promise.all([
+      SB.from('customers').select('*').order('id'),
+      SB.from('income').select('*').order('txn_date',{ascending:false}),
+      SB.from('expense').select('*').order('txn_date',{ascending:false}),
+      SB.from('bookings').select('*').order('book_date',{ascending:false}),
+      SB.from('seats').select('*').order('id'),
+      SB.from('app_users').select('*').order('id')
+    ]);
+    const errs=[cs,inc,exp,bk,seats,users].filter(r=>r.error).map(r=>r.error.message);
+    if(errs.length){toast('Lỗi tải: '+errs[0],'err');return false}
+    DB.customers=(cs.data||[]).map(M_CUST.fromDb);
+    DB.income=(inc.data||[]).map(M_INC.fromDb);
+    DB.expense=(exp.data||[]).map(M_EXP.fromDb);
+    DB.bookings=(bk.data||[]).map(M_BK.fromDb);
+    DB.seats=(seats.data||[]).map(r=>({id:r.id,area:r.area,type:r.type}));
+    DB.users=(users.data||[]).map(r=>({id:r.id,name:r.name,email:r.email,role:r.role,status:r.status}));
+    save();
+    return true;
+  }catch(e){toast('Không kết nối được Supabase: '+e.message,'err');return false}
+}
+
+async function reloadSlice(key){
+  const map={customers:{t:'customers',m:M_CUST,o:'id'},income:{t:'income',m:M_INC,o:'txn_date'},expense:{t:'expense',m:M_EXP,o:'txn_date'},bookings:{t:'bookings',m:M_BK,o:'book_date'}};
+  const c=map[key];if(!c)return;
+  const r=await SB.from(c.t).select('*').order(c.o,{ascending:false});
+  if(!r.error)DB[key]=r.data.map(c.m.fromDb);save();
+}
 
 /* ============== SEED DATA ============== */
 function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
@@ -567,7 +621,7 @@ function custForm(id){
     <button class="btn btn-primary" onclick="custSave('${id||''}')">${id?'Lưu':'Thêm mới'}</button>
   `);
 }
-function custSave(id){
+async function custSave(id){
   const data={
     id:document.getElementById('f_id').value.trim(),
     name:document.getElementById('f_name').value.trim(),
@@ -584,11 +638,18 @@ function custSave(id){
     note:document.getElementById('f_note').value.trim()
   };
   if(!data.name){toast('Vui lòng nhập tên','err');return}
-  if(id){const i=DB.customers.findIndex(c=>c.id===id);DB.customers[i]=data;toast('Đã cập nhật')}
-  else{if(DB.customers.find(c=>c.id===data.id)){toast('Mã KH đã tồn tại','err');return}DB.customers.push(data);toast('Đã thêm khách hàng')}
-  save();closeModal();render();
+  if(!id&&DB.customers.find(c=>c.id===data.id)){toast('Mã KH đã tồn tại','err');return}
+  const {error}=await SB.from('customers').upsert(M_CUST.toDb(data));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('customers');
+  closeModal();render();toast(id?'Đã cập nhật':'Đã thêm khách hàng');
 }
-function custDelete(id){confirmDlg('Xoá khách hàng này? Hành động không thể hoàn tác.',()=>{DB.customers=DB.customers.filter(c=>c.id!==id);save();closeModal();render();toast('Đã xoá','ok')})}
+async function custDelete(id){
+  if(!confirm('Xoá khách hàng này? Hành động không thể hoàn tác.'))return;
+  const {error}=await SB.from('customers').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('customers');closeModal();render();toast('Đã xoá');
+}
 function custDetail(id){
   const c=cust(id);if(!c)return;
   const incL=DB.income.filter(i=>i.custId===id).sort((a,b)=>b.date.localeCompare(a.date));
@@ -761,13 +822,19 @@ function incForm(id){
     <button class="btn btn-primary" onclick="incSave('${id||''}')">${id?'Lưu':'Thêm'}</button>
   `);
 }
-function incSave(id){
+async function incSave(id){
   const d={id:document.getElementById('i_id').value.trim(),date:document.getElementById('i_date').value,custId:document.getElementById('i_cust').value,cat:document.getElementById('i_cat').value,amount:+document.getElementById('i_amt').value||0,method:document.getElementById('i_method').value,note:document.getElementById('i_note').value};
   if(!d.amount){toast('Nhập số tiền','err');return}
-  if(id){const i=DB.income.findIndex(x=>x.id===id);DB.income[i]=d}else DB.income.push(d);
-  save();closeModal();render();toast('Đã lưu');
+  const {error}=await SB.from('income').upsert(M_INC.toDb(d));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('income');closeModal();render();toast('Đã lưu');
 }
-function incDelete(id){confirmDlg('Xoá khoản thu này?',()=>{DB.income=DB.income.filter(x=>x.id!==id);save();closeModal();render();toast('Đã xoá')})}
+async function incDelete(id){
+  if(!confirm('Xoá khoản thu này?'))return;
+  const {error}=await SB.from('income').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('income');closeModal();render();toast('Đã xoá');
+}
 function expForm(id){
   const e=id?DB.expense.find(x=>x.id===id):{id:'TC'+String(DB.expense.length+1).padStart(4,'0'),date:today(),cat:'other',amount:0,note:'',by:'Admin'};
   openModal(id?'Sửa khoản chi':'Thêm khoản chi',`
@@ -791,13 +858,19 @@ function expForm(id){
     <button class="btn btn-primary" onclick="expSave('${id||''}')">${id?'Lưu':'Thêm'}</button>
   `);
 }
-function expSave(id){
+async function expSave(id){
   const d={id:document.getElementById('e_id').value.trim(),date:document.getElementById('e_date').value,cat:document.getElementById('e_cat').value,amount:+document.getElementById('e_amt').value||0,note:document.getElementById('e_note').value,by:document.getElementById('e_by').value};
   if(!d.amount){toast('Nhập số tiền','err');return}
-  if(id){const i=DB.expense.findIndex(x=>x.id===id);DB.expense[i]=d}else DB.expense.push(d);
-  save();closeModal();render();toast('Đã lưu');
+  const {error}=await SB.from('expense').upsert(M_EXP.toDb(d));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('expense');closeModal();render();toast('Đã lưu');
 }
-function expDelete(id){confirmDlg('Xoá khoản chi này?',()=>{DB.expense=DB.expense.filter(x=>x.id!==id);save();closeModal();render();toast('Đã xoá')})}
+async function expDelete(id){
+  if(!confirm('Xoá khoản chi này?'))return;
+  const {error}=await SB.from('expense').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('expense');closeModal();render();toast('Đã xoá');
+}
 
 /* ============== PHÒNG HỌP ============== */
 function renderMR(){
@@ -909,17 +982,21 @@ function bkForm(id){
     <button class="btn btn-primary" onclick="bkSave('${id||''}')">${id?'Lưu':'Đặt'}</button>
   `);
 }
-function bkSave(id){
+async function bkSave(id){
   const d={id:document.getElementById('b_id').value.trim(),date:document.getElementById('b_date').value,start:document.getElementById('b_start').value,end:document.getElementById('b_end').value,room:document.getElementById('b_room').value,custId:document.getElementById('b_cust').value,purpose:document.getElementById('b_purpose').value,status:'booked'};
   if(!d.date||!d.start||!d.end){toast('Nhập ngày & giờ','err');return}
   if(d.start>=d.end){toast('Giờ kết thúc phải sau bắt đầu','err');return}
-  const conflict=DB.bookings.find(x=>x.id!==id&&x.date===d.date&&x.room===d.room&&!(d.end<=x.start||d.start>=x.end));
-  if(conflict){if(!confirm('Cảnh báo: Trùng lịch với '+conflict.id+' ('+conflict.start+'–'+conflict.end+'). Vẫn lưu?'))return}
-  if(id){const i=DB.bookings.findIndex(x=>x.id===id);DB.bookings[i]=d}else DB.bookings.push(d);
+  const {error}=await SB.from('bookings').upsert(M_BK.toDb(d));
+  if(error){toast(error.message.includes('Trùng lịch')?'⚠️ '+error.message:'Lỗi: '+error.message,'err');return}
   UI.mr.date=d.date;
-  save();closeModal();render();toast('Đã lưu lịch đặt');
+  await reloadSlice('bookings');closeModal();render();toast('Đã lưu lịch đặt');
 }
-function bkDelete(id){confirmDlg('Huỷ lịch đặt này?',()=>{DB.bookings=DB.bookings.filter(x=>x.id!==id);save();closeModal();render();toast('Đã huỷ')})}
+async function bkDelete(id){
+  if(!confirm('Huỷ lịch đặt này?'))return;
+  const {error}=await SB.from('bookings').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('bookings');closeModal();render();toast('Đã huỷ');
+}
 
 /* ============== ADMIN ============== */
 function renderAdmin(){
@@ -975,12 +1052,14 @@ function renderDataMgmt(){
   return`
   <div class="form-row" style="grid-template-columns:1fr">
     <div>
-      <h4 style="font-size:13px;margin-bottom:6px">💾 Sao lưu / Khôi phục</h4>
-      <p style="font-size:13px;color:var(--tx3);margin-bottom:10px">Dữ liệu lưu trên trình duyệt (localStorage). Hãy xuất file JSON định kỳ để phòng mất dữ liệu.</p>
+      <h4 style="font-size:13px;margin-bottom:6px">☁️ Kết nối Supabase</h4>
+      <div style="padding:10px 12px;background:var(--green-bg);color:var(--green-tx);border-radius:8px;font-size:12px;margin-bottom:10px">
+        ✅ Đã kết nối: <strong>${SUPABASE_URL.replace('https://','')}</strong>
+      </div>
+      <p style="font-size:13px;color:var(--tx3);margin-bottom:10px">Dữ liệu lưu trên Supabase PostgreSQL. Trình duyệt giữ bản cache để hiển thị nhanh khi offline.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="exportData()">⬇ Xuất JSON</button>
-        <label class="btn btn-ghost">⬆ Nhập JSON<input type="file" accept=".json" style="display:none" onchange="importData(this)"></label>
-        <button class="btn btn-red" onclick="resetDemo()">♻️ Tạo lại data mẫu</button>
+        <button class="btn btn-primary" onclick="loadDB().then(()=>{render();toast('Đã đồng bộ')})">🔄 Đồng bộ từ DB</button>
+        <button class="btn btn-ghost" onclick="exportData()">⬇ Xuất JSON backup</button>
       </div>
       <h4 style="font-size:13px;margin:20px 0 6px">📊 Thống kê dữ liệu</h4>
       <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
@@ -993,16 +1072,24 @@ function renderDataMgmt(){
   </div>`;
 }
 function exportData(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`tnc-office-backup-${today()}.json`;a.click();toast('Đã xuất backup')}
-function importData(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();r.onload=e=>{try{const d=JSON.parse(e.target.result);if(d.customers&&d.income&&d.expense&&d.bookings){DB=d;save();render();toast('Đã nhập dữ liệu')}else toast('File không đúng định dạng','err')}catch(err){toast('Lỗi đọc file','err')}};r.readAsText(f)}
-function resetDemo(){confirmDlg('Tạo lại toàn bộ dữ liệu mẫu? Dữ liệu hiện tại sẽ bị xoá.',()=>{seed();render();toast('Đã tạo lại data mẫu')})}
 
 /* ============== INIT ============== */
-document.addEventListener('DOMContentLoaded',()=>{
+document.addEventListener('DOMContentLoaded',async()=>{
   const theme=localStorage.getItem('tnc_theme')||'light';
   document.documentElement.setAttribute('data-theme',theme);
   document.getElementById('themeIcon').textContent=theme==='dark'?'☀️':'🌙';
-  if(!load()){seed()}
-  render();
+  /* 1. Show cached data immediately (if any) */
+  if(loadCache())render();
+  else{document.getElementById('main').innerHTML='<div class="empty"><div class="empty-icon">⏳</div>Đang tải dữ liệu từ Supabase...</div>'}
+  /* 2. Fetch fresh from Supabase */
+  const ok=await loadDB();
+  if(ok){
+    if(DB.customers.length===0&&DB.seats.length===0){
+      document.getElementById('main').innerHTML=`<div class="card" style="max-width:720px;margin:40px auto"><h2 style="margin-bottom:12px">⚠️ Database trống hoặc bị RLS chặn</h2><p style="color:var(--tx2);margin-bottom:14px">Supabase trả về 0 bản ghi. Có 2 khả năng:</p><ol style="margin:0 0 14px 20px;color:var(--tx2);line-height:1.7"><li>Bạn chưa chạy file <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">tnc-office-supabase.sql</code> trong SQL Editor.</li><li>Bạn đã chạy rồi nhưng RLS đang chặn anon key — hãy chạy tiếp file <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">tnc-office-supabase-patch.sql</code>.</li></ol><button class="btn btn-primary" onclick="location.reload()">🔄 Thử lại sau khi chạy SQL</button></div>`;
+      return;
+    }
+    render();
+  }
 });
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
 </script>
