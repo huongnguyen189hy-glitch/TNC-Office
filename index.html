@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>TNC Office — Hệ thống quản trị</title>
+<meta name="theme-color" content="#2563EB">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --bg1:#ffffff;--bg2:#f8fafc;--bg3:#f1f5f9;
+  --tx1:#0f172a;--tx2:#334155;--tx3:#64748b;
+  --bd1:#e2e8f0;--bd2:#cbd5e1;
+  --blue:#2563eb;--blue-bg:#dbeafe;--blue-tx:#1d4ed8;
+  --green:#059669;--green-bg:#d1fae5;--green-tx:#047857;
+  --red:#dc2626;--red-bg:#fee2e2;--red-tx:#b91c1c;
+  --amber:#d97706;--amber-bg:#fef3c7;--amber-tx:#b45309;
+  --purple:#7c3aed;--purple-bg:#ede9fe;--purple-tx:#6d28d9;
+  --teal:#0d9488;--teal-bg:#ccfbf1;--teal-tx:#0f766e;
+  --pink:#db2777;--pink-bg:#fce7f3;--pink-tx:#be185d;
+  --radius:8px;--radius-lg:12px;
+  --shadow-sm:0 1px 2px rgba(15,23,42,.04);
+  --shadow-md:0 4px 12px rgba(15,23,42,.06);
+  --shadow-lg:0 12px 32px rgba(15,23,42,.10);
+}
+html[data-theme="dark"]{
+  --bg1:#0f172a;--bg2:#1e293b;--bg3:#0b1220;
+  --tx1:#f1f5f9;--tx2:#cbd5e1;--tx3:#94a3b8;
+  --bd1:rgba(255,255,255,.08);--bd2:rgba(255,255,255,.16);
+  --blue-bg:rgba(37,99,235,.2);--green-bg:rgba(5,150,105,.2);
+  --red-bg:rgba(220,38,38,.2);--amber-bg:rgba(217,119,6,.2);
+  --purple-bg:rgba(124,58,237,.2);--teal-bg:rgba(13,148,136,.2);--pink-bg:rgba(219,39,119,.2);
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3);--shadow-md:0 4px 12px rgba(0,0,0,.35);--shadow-lg:0 14px 32px rgba(0,0,0,.45);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg3);color:var(--tx1);min-height:100vh;font-size:14px;line-height:1.5}
+.app{display:grid;grid-template-columns:220px 1fr;min-height:100vh}
+@media(max-width:900px){.app{grid-template-columns:1fr}.sidebar{display:none;position:fixed;z-index:100;width:240px;height:100vh;box-shadow:var(--shadow-lg)}.sidebar.open{display:block}.mobile-header{display:flex!important}}
+.sidebar{background:var(--bg2);border-right:1px solid var(--bd1);padding:16px 0;position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:4px 20px 18px;border-bottom:1px solid var(--bd1);margin-bottom:10px}
+.logo h1{font-size:17px;font-weight:700;color:var(--tx1);display:flex;align-items:center;gap:8px}
+.logo .dot{width:8px;height:8px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.logo span{font-size:11px;color:var(--tx3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 20px;font-size:13px;color:var(--tx2);cursor:pointer;border-left:3px solid transparent;transition:all .15s}
+.nav-item:hover{background:var(--bd1);color:var(--tx1)}
+.nav-item.active{background:var(--blue-bg);color:var(--blue-tx);font-weight:600;border-left-color:var(--blue)}
+.nav-ic{width:18px;text-align:center;font-size:15px}
+.mobile-header{display:none;padding:10px 14px;background:var(--bg2);border-bottom:1px solid var(--bd1);position:sticky;top:0;z-index:50;align-items:center;gap:12px}
+.hamburger{width:28px;height:28px;display:flex;flex-direction:column;justify-content:center;gap:4px;cursor:pointer;background:none;border:none;padding:4px}
+.hamburger span{display:block;width:100%;height:2px;background:var(--tx1);border-radius:1px}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:99}
+.overlay.show{display:block}
+.main{padding:22px 26px;overflow-y:auto}
+@media(max-width:900px){.main{padding:14px}}
+.page-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:18px}
+.page-title{font-size:22px;font-weight:700}
+.page-sub{font-size:13px;color:var(--tx3);margin-top:2px}
+.kpi-grid{display:grid;gap:12px;margin-bottom:18px;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
+.kpi{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:14px 16px;box-shadow:var(--shadow-sm)}
+.kpi-label{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.4px;font-weight:600}
+.kpi-value{font-size:24px;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums;color:var(--tx1)}
+.kpi-note{font-size:11px;color:var(--tx3);margin-top:3px}
+.kpi-note.up{color:var(--green-tx)}.kpi-note.down{color:var(--red-tx)}
+.card{background:var(--bg1);border:1px solid var(--bd1);border-radius:var(--radius-lg);padding:16px;box-shadow:var(--shadow-sm);margin-bottom:16px}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;gap:10px;flex-wrap:wrap}
+.card-title{font-size:15px;font-weight:700}
+.table-wrap{overflow-x:auto;margin:0 -16px}
+.table-wrap table{min-width:640px}
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:10px 14px;font-size:11px;font-weight:700;color:var(--tx2);border-bottom:1px solid var(--bd2);text-transform:uppercase;letter-spacing:.4px;background:var(--bg2);position:sticky;top:0}
+td{padding:10px 14px;border-bottom:1px solid var(--bd1);font-size:13px;color:var(--tx1)}
+tr:hover td{background:var(--bg2)}
+.mono{font-variant-numeric:tabular-nums}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap}
+.b-green{background:var(--green-bg);color:var(--green-tx)}
+.b-red{background:var(--red-bg);color:var(--red-tx)}
+.b-amber{background:var(--amber-bg);color:var(--amber-tx)}
+.b-blue{background:var(--blue-bg);color:var(--blue-tx)}
+.b-purple{background:var(--purple-bg);color:var(--purple-tx)}
+.b-teal{background:var(--teal-bg);color:var(--teal-tx)}
+.b-pink{background:var(--pink-bg);color:var(--pink-tx)}
+.b-gray{background:var(--bg3);color:var(--tx3)}
+.btn{padding:8px 14px;border:none;border-radius:var(--radius);font-size:13px;font-weight:600;cursor:pointer;transition:all .15s;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow-sm)}
+.btn:active{transform:translateY(0)}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-green{background:var(--green);color:#fff}
+.btn-red{background:var(--red);color:#fff}
+.btn-ghost{background:var(--bg1);color:var(--tx2);border:1px solid var(--bd2)}
+.btn-ghost:hover{background:var(--bg2);color:var(--tx1)}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{width:32px;height:32px;padding:0;justify-content:center}
+.form-row{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:12px}
+.form-group{display:flex;flex-direction:column;gap:4px}
+.form-group label{font-size:11px;color:var(--tx3);text-transform:uppercase;letter-spacing:.3px;font-weight:600}
+.form-group input,.form-group select,.form-group textarea{padding:9px 11px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg1);color:var(--tx1);font-size:13px;font-family:inherit;outline:none;transition:border .15s}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-bg)}
+.form-group textarea{resize:vertical;min-height:60px}
+.tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap;border-bottom:1px solid var(--bd1);padding-bottom:0}
+.tab{padding:8px 14px;font-size:13px;cursor:pointer;border:none;background:transparent;color:var(--tx2);border-bottom:2px solid transparent;font-weight:500;margin-bottom:-1px;font-family:inherit}
+.tab:hover{color:var(--tx1)}
+.tab.active{color:var(--blue-tx);border-bottom-color:var(--blue);font-weight:700}
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.toolbar input,.toolbar select{padding:8px 10px;border:1px solid var(--bd2);border-radius:var(--radius);background:var(--bg1);color:var(--tx1);font-size:13px;font-family:inherit;outline:none}
+.toolbar input{flex:1;min-width:200px}
+.modal-bg{position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:1000;display:none;align-items:flex-start;justify-content:center;padding:40px 20px;overflow-y:auto}
+.modal-bg.show{display:flex}
+.modal{background:var(--bg1);border-radius:var(--radius-lg);max-width:640px;width:100%;box-shadow:var(--shadow-lg);overflow:hidden}
+.modal-head{padding:16px 20px;border-bottom:1px solid var(--bd1);display:flex;justify-content:space-between;align-items:center}
+.modal-head h3{font-size:16px;font-weight:700}
+.modal-body{padding:20px;max-height:70vh;overflow-y:auto}
+.modal-foot{padding:14px 20px;border-top:1px solid var(--bd1);background:var(--bg2);display:flex;gap:8px;justify-content:flex-end}
+.close-btn{width:32px;height:32px;border-radius:var(--radius);border:none;background:transparent;font-size:20px;cursor:pointer;color:var(--tx3);display:flex;align-items:center;justify-content:center}
+.close-btn:hover{background:var(--bg2);color:var(--tx1)}
+.toast{position:fixed;top:20px;right:20px;padding:12px 18px;border-radius:var(--radius);font-size:13px;font-weight:600;color:#fff;z-index:2000;box-shadow:var(--shadow-lg);animation:slideIn .25s}
+.toast.ok{background:var(--green)}.toast.err{background:var(--red)}.toast.info{background:var(--blue)}
+@keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+.theme-fab{position:fixed;top:14px;right:14px;width:36px;height:36px;border-radius:50%;background:var(--bg1);border:1px solid var(--bd2);color:var(--tx2);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:150;box-shadow:var(--shadow-sm)}
+.theme-fab:hover{color:var(--tx1)}
+@media(max-width:900px){.theme-fab{top:auto;bottom:20px;right:14px}}
+.empty{text-align:center;padding:48px 20px;color:var(--tx3)}
+.empty-icon{font-size:40px;margin-bottom:12px;opacity:.5}
+.chart-bars{display:flex;align-items:flex-end;gap:8px;height:160px;padding:12px 4px;border-bottom:1px solid var(--bd1)}
+.chart-bar{flex:1;background:var(--blue);border-radius:4px 4px 0 0;position:relative;min-height:4px;transition:opacity .2s;cursor:pointer}
+.chart-bar:hover{opacity:.8}
+.chart-bar-label{font-size:10px;color:var(--tx3);text-align:center;margin-top:4px}
+.chart-labels{display:flex;gap:8px;margin-top:6px}
+.chart-labels>div{flex:1;text-align:center;font-size:10px;color:var(--tx3)}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:8px}
+.cal-head{text-align:center;font-size:11px;font-weight:600;color:var(--tx3);padding:6px 0;text-transform:uppercase}
+.cal-day{aspect-ratio:1;border:1px solid var(--bd1);border-radius:var(--radius);padding:6px;font-size:12px;cursor:pointer;background:var(--bg1);position:relative;display:flex;flex-direction:column;transition:all .15s;min-height:64px}
+.cal-day:hover{border-color:var(--blue);box-shadow:var(--shadow-sm)}
+.cal-day.other{opacity:.35}
+.cal-day.today{border-color:var(--blue);background:var(--blue-bg);font-weight:700}
+.cal-day.has{border-color:var(--amber)}
+.cal-date{font-size:12px;font-weight:600}
+.cal-count{font-size:10px;color:var(--amber-tx);margin-top:auto;font-weight:600}
+.booking-item{background:var(--bg2);border-left:3px solid var(--blue);border-radius:var(--radius);padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;align-items:center}
+.booking-time{font-size:12px;font-weight:700;color:var(--blue-tx);font-variant-numeric:tabular-nums}
+.booking-who{font-size:13px;font-weight:600}
+.booking-what{font-size:12px;color:var(--tx3)}
+.split{display:grid;gap:16px;grid-template-columns:1fr 1fr}
+@media(max-width:900px){.split{grid-template-columns:1fr}}
+.sel-pkg{padding:3px 8px;border-radius:10px;font-size:11px;font-weight:600}
+.pkg-hot{background:var(--teal-bg);color:var(--teal-tx)}
+.pkg-ded{background:var(--purple-bg);color:var(--purple-tx)}
+.pkg-priv{background:var(--pink-bg);color:var(--pink-tx)}
+.pkg-virt{background:var(--amber-bg);color:var(--amber-tx)}
+.pagination{display:flex;gap:6px;justify-content:flex-end;margin-top:12px;align-items:center;flex-wrap:wrap}
+.pagination .info{color:var(--tx3);font-size:12px;margin-right:auto}
+.avatar{width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0}
+.cust-cell{display:flex;align-items:center;gap:10px}
+.cust-name{font-weight:600;font-size:13px}
+.cust-sub{font-size:11px;color:var(--tx3)}
+.amt-in{color:var(--green-tx);font-weight:600}
+.amt-out{color:var(--red-tx);font-weight:600}
+html[data-theme="dark"] th{background:var(--bg3);color:var(--tx2)}
+html[data-theme="dark"] .cal-day{background:var(--bg2)}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay" onclick="toggleMenu()"></div>
+
+<div class="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="logo">
+      <h1>🏢 TNC Office <span class="dot"></span></h1>
+      <span>Hệ thống quản trị</span>
+    </div>
+    <div class="nav-item active" data-page="dashboard" onclick="nav('dashboard')"><span class="nav-ic">📊</span>Tổng quan</div>
+    <div class="nav-item" data-page="customers" onclick="nav('customers')"><span class="nav-ic">👥</span>Khách hàng</div>
+    <div class="nav-item" data-page="finance" onclick="nav('finance')"><span class="nav-ic">💰</span>Tài chính</div>
+    <div class="nav-item" data-page="meeting" onclick="nav('meeting')"><span class="nav-ic">🗓️</span>Phòng họp</div>
+    <div class="nav-item" data-page="admin" onclick="nav('admin')"><span class="nav-ic">⚙️</span>Admin</div>
+  </aside>
+
+  <div>
+    <div class="mobile-header">
+      <button class="hamburger" onclick="toggleMenu()"><span></span><span></span><span></span></button>
+      <strong>🏢 TNC Office</strong>
+    </div>
+    <main class="main" id="main"></main>
+  </div>
+</div>
+
+<button class="theme-fab" onclick="toggleTheme()" title="Chuyển theme"><span id="themeIcon">🌙</span></button>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <div class="modal-head"><h3 id="modalTitle"></h3><button class="close-btn" onclick="closeModal()">×</button></div>
+    <div class="modal-body" id="modalBody"></div>
+    <div class="modal-foot" id="modalFoot"></div>
+  </div>
+</div>
+
+<script>
+/* ============== SUPABASE CLIENT ============== */
+const SUPABASE_URL='https://xznpdflpcvodgbgashqs.supabase.co';
+const SUPABASE_KEY='sb_publishable_WZsa3PM7_KE0How_ER3a1Q_gHSvl28N';
+const SB=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+
+/* Field mappers: in-memory JS ↔ DB columns */
+const M_CUST={
+  toDb:c=>({id:c.id,name:c.name,phone:c.phone||null,email:c.email||null,company:c.company||null,package_id:c.package,seat_id:c.seat||null,fee:+c.fee||0,deposit:+c.deposit||0,start_date:c.start||null,end_date:c.end||null,status:c.status,note:c.note||null}),
+  fromDb:r=>({id:r.id,name:r.name,phone:r.phone||'',email:r.email||'',company:r.company||'',package:r.package_id,seat:r.seat_id||'',fee:+r.fee||0,deposit:+r.deposit||0,start:r.start_date,end:r.end_date,status:r.status,note:r.note||''})
+};
+const M_INC={
+  toDb:i=>({id:i.id,txn_date:i.date,customer_id:i.custId||null,category_id:i.cat,amount:+i.amount||0,method:i.method,note:i.note||null}),
+  fromDb:r=>({id:r.id,date:r.txn_date,custId:r.customer_id||'',cat:r.category_id,amount:+r.amount||0,method:r.method,note:r.note||''})
+};
+const M_EXP={
+  toDb:e=>({id:e.id,txn_date:e.date,category_id:e.cat,amount:+e.amount||0,note:e.note||null,paid_by:e.by||null}),
+  fromDb:r=>({id:r.id,date:r.txn_date,cat:r.category_id,amount:+r.amount||0,note:r.note||'',by:r.paid_by||''})
+};
+const M_BK={
+  toDb:b=>({id:b.id,book_date:b.date,start_time:b.start,end_time:b.end,room_id:b.room,customer_id:b.custId||null,purpose:b.purpose||null,status:b.status||'booked'}),
+  fromDb:r=>({id:r.id,date:r.book_date,start:r.start_time?.slice(0,5),end:r.end_time?.slice(0,5),room:r.room_id,custId:r.customer_id||'',purpose:r.purpose||'',status:r.status})
+};
+
+/* ============== STATE ============== */
+const LS_KEY='tnc_office_cache_v2';
+const PACKAGES={
+  hot:{name:'Hot Desk',price:1500000,color:'pkg-hot',desc:'Chỗ ngồi linh hoạt'},
+  ded:{name:'Dedicated Desk',price:3500000,color:'pkg-ded',desc:'Chỗ ngồi cố định'},
+  priv:{name:'Private Office',price:8000000,color:'pkg-priv',desc:'Phòng riêng'},
+  virt:{name:'Virtual Office',price:800000,color:'pkg-virt',desc:'Văn phòng ảo'}
+};
+const EXP_CAT={
+  elec:'Tiền điện',water:'Tiền nước',net:'Internet',clean:'Vệ sinh',
+  rent:'Thuê mặt bằng',salary:'Lương nhân viên',market:'Marketing',
+  supply:'Văn phòng phẩm',repair:'Sửa chữa',other:'Khác'
+};
+const INC_CAT={
+  rent:'Phí thuê chỗ',meeting:'Phòng họp',deposit:'Tiền cọc',
+  print:'In ấn/Photo',service:'Dịch vụ khác',other:'Khác'
+};
+const ROOMS=[
+  {id:'MR1',name:'Phòng họp lớn',cap:12,rate:200000},
+  {id:'MR2',name:'Phòng họp nhỏ',cap:6,rate:120000},
+  {id:'MR3',name:'Phòng Phone Booth',cap:2,rate:50000}
+];
+
+const toLocalISO=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),dd=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${dd}`};
+
+let DB={customers:[],income:[],expense:[],bookings:[],seats:[],users:[]};
+let UI={page:'dashboard',cust:{q:'',pkg:'',status:'',page:1,per:15,sort:{k:'name',d:1}},
+        fin:{tab:'income',month:null},
+        mr:{view:'calendar',date:toLocalISO(new Date()),room:'MR1'},
+        admin:{tab:'packages'}};
+
+function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(DB))}catch(e){}}
+function loadCache(){const s=localStorage.getItem(LS_KEY);if(s){try{DB=JSON.parse(s);return true}catch(e){}}return false}
+
+async function loadDB(){
+  try{
+    const [cs,inc,exp,bk,seats,users]=await Promise.all([
+      SB.from('customers').select('*').order('id'),
+      SB.from('income').select('*').order('txn_date',{ascending:false}),
+      SB.from('expense').select('*').order('txn_date',{ascending:false}),
+      SB.from('bookings').select('*').order('book_date',{ascending:false}),
+      SB.from('seats').select('*').order('id'),
+      SB.from('app_users').select('*').order('id')
+    ]);
+    const errs=[cs,inc,exp,bk,seats,users].filter(r=>r.error).map(r=>r.error.message);
+    if(errs.length){toast('Lỗi tải: '+errs[0],'err');return false}
+    DB.customers=(cs.data||[]).map(M_CUST.fromDb);
+    DB.income=(inc.data||[]).map(M_INC.fromDb);
+    DB.expense=(exp.data||[]).map(M_EXP.fromDb);
+    DB.bookings=(bk.data||[]).map(M_BK.fromDb);
+    DB.seats=(seats.data||[]).map(r=>({id:r.id,area:r.area,type:r.type}));
+    DB.users=(users.data||[]).map(r=>({id:r.id,name:r.name,email:r.email,role:r.role,status:r.status}));
+    save();
+    return true;
+  }catch(e){toast('Không kết nối được Supabase: '+e.message,'err');return false}
+}
+
+async function reloadSlice(key){
+  const map={customers:{t:'customers',m:M_CUST,o:'id'},income:{t:'income',m:M_INC,o:'txn_date'},expense:{t:'expense',m:M_EXP,o:'txn_date'},bookings:{t:'bookings',m:M_BK,o:'book_date'}};
+  const c=map[key];if(!c)return;
+  const r=await SB.from(c.t).select('*').order(c.o,{ascending:false});
+  if(!r.error)DB[key]=r.data.map(c.m.fromDb);save();
+}
+
+/* ============== SEED DATA ============== */
+function rand(a,b){return Math.floor(Math.random()*(b-a+1))+a}
+function pick(a){return a[Math.floor(Math.random()*a.length)]}
+function seed(){
+  const hoDem=['Nguyễn','Trần','Lê','Phạm','Hoàng','Vũ','Đặng','Bùi','Đỗ','Ngô','Dương','Lý'];
+  const tenDem=['Văn','Thị','Minh','Hoàng','Quang','Thu','Thanh','Huy','Anh','Hữu','Thành','Ngọc'];
+  const ten=['Hùng','Hương','Linh','Nam','Phong','Mai','Trang','Dũng','Long','Yến','Thảo','Khoa','Bình','Giang','Hiếu','Tú','Khánh','Lan','Quỳnh','Tuấn','Vân','Đạt','Tiến','Minh','Hà'];
+  const cty=['TNHH ABC','Cổ phần XYZ','Startup Tech','Agency 360','Media House','Digital Lab','Studio Việt','Công ty TNHH MTV','Nhóm Freelance','Solo Founder','E-commerce Co','Education VN','Fintech Labs','Health Corp','Travel Pro'];
+  const pkgs=['hot','hot','hot','ded','ded','priv','virt'];
+  const statuses=['active','active','active','active','expiring','paused','ended'];
+  const today=new Date();
+  DB.customers=[];
+  for(let i=1;i<=100;i++){
+    const pkg=pick(pkgs);
+    const st=pick(statuses);
+    const start=new Date(today);start.setMonth(start.getMonth()-rand(1,20));
+    const dur=pick([3,6,6,12,12,24]);
+    const end=new Date(start);end.setMonth(end.getMonth()+dur);
+    const fullName=`${pick(hoDem)} ${pick(tenDem)} ${pick(ten)}`;
+    DB.customers.push({
+      id:'KH'+String(i).padStart(3,'0'),
+      name:fullName,
+      phone:`09${rand(10000000,99999999)}`,
+      email:`kh${i}@${pick(['gmail.com','company.vn','outlook.com','tncoffice.vn'])}`,
+      company:`Cty ${pick(cty)}`,
+      package:pkg,
+      seat:pkg==='virt'?'':`S${String(rand(1,40)).padStart(3,'0')}`,
+      fee:PACKAGES[pkg].price+rand(-200,300)*1000,
+      start:toLocalISO(start),
+      end:toLocalISO(end),
+      status:st,
+      deposit:PACKAGES[pkg].price,
+      note:''
+    });
+  }
+  /* Income: 6 tháng gần đây */
+  DB.income=[];let iId=1;
+  for(let m=5;m>=0;m--){
+    const d0=new Date(today);d0.setMonth(d0.getMonth()-m);d0.setDate(1);
+    DB.customers.filter(c=>c.status==='active'||c.status==='expiring').slice(0,rand(70,95)).forEach(c=>{
+      const d=new Date(d0);d.setDate(rand(1,28));
+      DB.income.push({id:'TH'+String(iId++).padStart(4,'0'),date:toLocalISO(d),custId:c.id,cat:'rent',amount:c.fee,method:pick(['bank','cash','momo']),note:'Phí tháng '+(d.getMonth()+1)});
+    });
+    for(let k=0;k<rand(8,20);k++){
+      const d=new Date(d0);d.setDate(rand(1,28));
+      const c=pick(DB.customers);
+      DB.income.push({id:'TH'+String(iId++).padStart(4,'0'),date:toLocalISO(d),custId:c.id,cat:pick(['meeting','print','service']),amount:rand(50,600)*1000,method:pick(['bank','cash','momo']),note:''});
+    }
+  }
+  /* Expense 6 tháng */
+  DB.expense=[];let eId=1;
+  for(let m=5;m>=0;m--){
+    const d0=new Date(today);d0.setMonth(d0.getMonth()-m);d0.setDate(1);
+    const fixed=[
+      {cat:'rent',amount:50000000,note:'Thuê mặt bằng'},
+      {cat:'salary',amount:45000000,note:'Lương nhân viên'},
+      {cat:'elec',amount:rand(8,14)*1000000,note:'Tiền điện'},
+      {cat:'water',amount:rand(800,1500)*1000,note:'Tiền nước'},
+      {cat:'net',amount:3500000,note:'Internet + Wifi'},
+      {cat:'clean',amount:4000000,note:'Vệ sinh văn phòng'},
+    ];
+    fixed.forEach(f=>{const d=new Date(d0);d.setDate(rand(1,10));DB.expense.push({id:'TC'+String(eId++).padStart(4,'0'),date:toLocalISO(d),cat:f.cat,amount:f.amount,note:f.note,by:'Admin'})});
+    for(let k=0;k<rand(3,8);k++){
+      const d=new Date(d0);d.setDate(rand(1,28));
+      DB.expense.push({id:'TC'+String(eId++).padStart(4,'0'),date:toLocalISO(d),cat:pick(['supply','market','repair','other']),amount:rand(200,3500)*1000,note:pick(['Mua văn phòng phẩm','Quảng cáo FB','Sửa máy lạnh','Nước uống','Trà cà phê']),by:pick(['Admin','Kế toán','Lễ tân'])});
+    }
+  }
+  /* Bookings 60 ngày gần + tương lai */
+  DB.bookings=[];let bId=1;
+  for(let d=-30;d<=30;d++){
+    const dt=new Date(today);dt.setDate(dt.getDate()+d);
+    const n=rand(0,5);
+    for(let k=0;k<n;k++){
+      const h=rand(8,18);const dur=pick([1,1,1,2,2,3]);
+      const c=pick(DB.customers);
+      DB.bookings.push({
+        id:'BK'+String(bId++).padStart(4,'0'),
+        date:toLocalISO(dt),
+        start:`${String(h).padStart(2,'0')}:00`,
+        end:`${String(Math.min(h+dur,21)).padStart(2,'0')}:00`,
+        room:pick(['MR1','MR2','MR3']),
+        custId:c.id,
+        purpose:pick(['Họp nội bộ','Gặp khách hàng','Phỏng vấn','Training','Workshop','Meeting','Brainstorm','Demo sản phẩm']),
+        status:'booked'
+      });
+    }
+  }
+  /* Seats */
+  DB.seats=[];
+  for(let i=1;i<=40;i++)DB.seats.push({id:'S'+String(i).padStart(3,'0'),area:i<=20?'Khu A':'Khu B',type:i<=30?'desk':'private'});
+  DB.users=[
+    {id:'U001',name:'Admin chính',email:'admin@tncoffice.vn',role:'admin',status:'active'},
+    {id:'U002',name:'Lễ tân Mai',email:'letan@tncoffice.vn',role:'staff',status:'active'},
+    {id:'U003',name:'Kế toán Lan',email:'ketoan@tncoffice.vn',role:'accountant',status:'active'}
+  ];
+  save();
+}
+
+/* ============== UTILS ============== */
+const fmt=n=>(n||0).toLocaleString('vi-VN');
+const fmtVND=n=>fmt(n)+'₫';
+const fmtDate=s=>{if(!s)return'';const d=new Date(s);return d.toLocaleDateString('vi-VN')};
+const monthKey=s=>s?s.slice(0,7):'';
+const today=()=>toLocalISO(new Date());
+const thisMonth=()=>today().slice(0,7);
+const avatar=(name,id)=>{const c=['#2563eb','#059669','#dc2626','#d97706','#7c3aed','#db2777','#0d9488'];const h=(id||name||'').split('').reduce((a,c)=>a+c.charCodeAt(0),0);const bg=c[h%c.length];const ini=name.split(' ').slice(-2).map(s=>s[0]||'').join('').toUpperCase();return`<div class="avatar" style="background:${bg}">${ini}</div>`};
+const custName=id=>{const c=DB.customers.find(x=>x.id===id);return c?c.name:'—'};
+const cust=id=>DB.customers.find(x=>x.id===id);
+
+function toast(msg,type='ok'){const el=document.createElement('div');el.className='toast '+type;el.textContent=msg;document.body.appendChild(el);setTimeout(()=>el.remove(),2500)}
+function confirmDlg(msg,cb){if(confirm(msg))cb()}
+
+/* ============== NAVIGATION ============== */
+function nav(p){UI.page=p;document.querySelectorAll('.nav-item').forEach(n=>n.classList.toggle('active',n.dataset.page===p));render();if(window.innerWidth<=900)toggleMenu(true)}
+function toggleMenu(force){const sb=document.getElementById('sidebar'),ov=document.getElementById('overlay');if(force){sb.classList.remove('open');ov.classList.remove('show');return}sb.classList.toggle('open');ov.classList.toggle('show')}
+function toggleTheme(){const cur=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',cur);document.getElementById('themeIcon').textContent=cur==='dark'?'☀️':'🌙';localStorage.setItem('tnc_theme',cur)}
+
+/* ============== MODAL ============== */
+function openModal(title,body,foot){document.getElementById('modalTitle').textContent=title;document.getElementById('modalBody').innerHTML=body;document.getElementById('modalFoot').innerHTML=foot||'<button class="btn btn-ghost" onclick="closeModal()">Đóng</button>';document.getElementById('modal').classList.add('show')}
+function closeModal(){document.getElementById('modal').classList.remove('show')}
+
+/* ============== RENDER ROUTER ============== */
+function render(){const m=document.getElementById('main');switch(UI.page){
+  case'dashboard':m.innerHTML=renderDash();break;
+  case'customers':m.innerHTML=renderCust();break;
+  case'finance':m.innerHTML=renderFin();break;
+  case'meeting':m.innerHTML=renderMR();break;
+  case'admin':m.innerHTML=renderAdmin();break;
+}window.scrollTo(0,0)}
+
+/* ============== DASHBOARD ============== */
+function renderDash(){
+  const tm=thisMonth();
+  const active=DB.customers.filter(c=>c.status==='active'||c.status==='expiring').length;
+  const CAPACITY=100;
+  const rate=Math.round(active/CAPACITY*100);
+  const incM=DB.income.filter(i=>monthKey(i.date)===tm).reduce((s,i)=>s+i.amount,0);
+  const expM=DB.expense.filter(e=>monthKey(e.date)===tm).reduce((s,e)=>s+e.amount,0);
+  const profit=incM-expM;
+  const bookM=DB.bookings.filter(b=>monthKey(b.date)===tm).length;
+  const in30=new Date();in30.setDate(in30.getDate()+30);
+  const expiring=DB.customers.filter(c=>c.status!=='ended'&&new Date(c.end)<=in30&&new Date(c.end)>=new Date()).length;
+
+  /* 6-month revenue chart */
+  const months=[];const now=new Date();
+  for(let i=5;i>=0;i--){const d=new Date(now);d.setMonth(d.getMonth()-i);months.push(toLocalISO(d).slice(0,7))}
+  const revByM=months.map(m=>DB.income.filter(i=>monthKey(i.date)===m).reduce((s,i)=>s+i.amount,0));
+  const expByM=months.map(m=>DB.expense.filter(e=>monthKey(e.date)===m).reduce((s,e)=>s+e.amount,0));
+  const maxV=Math.max(...revByM,...expByM,1);
+
+  /* Package distribution */
+  const pkgDist={};Object.keys(PACKAGES).forEach(k=>pkgDist[k]=0);
+  DB.customers.filter(c=>c.status!=='ended').forEach(c=>pkgDist[c.package]=(pkgDist[c.package]||0)+1);
+  const pkgMax=Math.max(...Object.values(pkgDist),1);
+
+  /* Expiring contracts list */
+  const expList=DB.customers.filter(c=>c.status!=='ended'&&new Date(c.end)<=in30&&new Date(c.end)>=new Date()).sort((a,b)=>new Date(a.end)-new Date(b.end)).slice(0,6);
+  /* Top customers by revenue */
+  const topCust={};DB.income.forEach(i=>{if(!topCust[i.custId])topCust[i.custId]=0;topCust[i.custId]+=i.amount});
+  const topList=Object.entries(topCust).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  /* Recent bookings */
+  const todayBk=DB.bookings.filter(b=>b.date===today()).sort((a,b)=>a.start.localeCompare(b.start));
+
+  return`
+  <div class="page-head">
+    <div><h1 class="page-title">Tổng quan</h1><div class="page-sub">Trạng thái vận hành tháng ${tm.slice(5)}/${tm.slice(0,4)}</div></div>
+  </div>
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Khách đang thuê</div><div class="kpi-value">${active}<span style="font-size:13px;color:var(--tx3);font-weight:400"> /100</span></div><div class="kpi-note up">Lấp đầy ${rate}%</div></div>
+    <div class="kpi"><div class="kpi-label">Doanh thu tháng</div><div class="kpi-value">${fmtVND(incM)}</div><div class="kpi-note up">${DB.income.filter(i=>monthKey(i.date)===tm).length} giao dịch</div></div>
+    <div class="kpi"><div class="kpi-label">Chi phí tháng</div><div class="kpi-value">${fmtVND(expM)}</div><div class="kpi-note down">${DB.expense.filter(e=>monthKey(e.date)===tm).length} khoản chi</div></div>
+    <div class="kpi"><div class="kpi-label">Lợi nhuận</div><div class="kpi-value" style="color:${profit>=0?'var(--green-tx)':'var(--red-tx)'}">${fmtVND(profit)}</div><div class="kpi-note ${profit>=0?'up':'down'}">Biên ${incM?Math.round(profit/incM*100):0}%</div></div>
+    <div class="kpi"><div class="kpi-label">Lượt đặt phòng họp</div><div class="kpi-value">${bookM}</div><div class="kpi-note">Tháng này</div></div>
+    <div class="kpi"><div class="kpi-label">HĐ sắp hết hạn</div><div class="kpi-value" style="color:var(--amber-tx)">${expiring}</div><div class="kpi-note">Trong 30 ngày</div></div>
+  </div>
+
+  <div class="split">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Doanh thu & chi phí 6 tháng</div></div>
+      <div class="chart-bars">
+        ${months.map((m,i)=>`<div style="flex:1;display:flex;gap:3px;align-items:flex-end;height:100%"><div class="chart-bar" style="height:${revByM[i]/maxV*100}%;background:var(--green)" title="Thu: ${fmtVND(revByM[i])}"></div><div class="chart-bar" style="height:${expByM[i]/maxV*100}%;background:var(--red)" title="Chi: ${fmtVND(expByM[i])}"></div></div>`).join('')}
+      </div>
+      <div class="chart-labels">${months.map(m=>`<div>${m.slice(5)}/${m.slice(2,4)}</div>`).join('')}</div>
+      <div style="display:flex;gap:14px;margin-top:10px;font-size:12px;color:var(--tx3)"><span>🟢 Thu</span><span>🔴 Chi</span></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">Phân bố gói dịch vụ</div></div>
+      ${Object.entries(pkgDist).map(([k,v])=>`
+        <div style="margin-bottom:12px">
+          <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span><span class="sel-pkg ${PACKAGES[k].color}">${PACKAGES[k].name}</span></span><span class="mono" style="font-weight:600">${v} khách</span></div>
+          <div style="background:var(--bd1);height:8px;border-radius:4px;overflow:hidden"><div style="background:var(--blue);height:100%;width:${v/pkgMax*100}%"></div></div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <div class="split">
+    <div class="card">
+      <div class="card-head"><div class="card-title">Hợp đồng sắp hết hạn</div><button class="btn btn-sm btn-ghost" onclick="nav('customers')">Xem tất cả →</button></div>
+      ${expList.length?`<div class="table-wrap"><table><thead><tr><th>Khách hàng</th><th>Gói</th><th>Hết hạn</th></tr></thead><tbody>
+        ${expList.map(c=>`<tr><td><div class="cust-cell">${avatar(c.name,c.id)}<div><div class="cust-name">${c.name}</div><div class="cust-sub">${c.id}</div></div></div></td><td><span class="sel-pkg ${PACKAGES[c.package].color}">${PACKAGES[c.package].name}</span></td><td class="mono">${fmtDate(c.end)}</td></tr>`).join('')}
+      </tbody></table></div>`:`<div class="empty">Không có hợp đồng sắp hết hạn.</div>`}
+    </div>
+
+    <div class="card">
+      <div class="card-head"><div class="card-title">Top khách hàng (doanh thu)</div><button class="btn btn-sm btn-ghost" onclick="nav('finance')">Xem chi tiết →</button></div>
+      <div class="table-wrap"><table><thead><tr><th>Khách hàng</th><th style="text-align:right">Tổng thu</th></tr></thead><tbody>
+        ${topList.map(([id,v])=>{const c=cust(id);if(!c)return'';return`<tr><td><div class="cust-cell">${avatar(c.name,c.id)}<div><div class="cust-name">${c.name}</div><div class="cust-sub">${c.company}</div></div></div></td><td class="mono amt-in" style="text-align:right">${fmtVND(v)}</td></tr>`}).join('')}
+      </tbody></table></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">Lịch đặt phòng họp hôm nay (${fmtDate(today())})</div><button class="btn btn-sm btn-ghost" onclick="nav('meeting')">Xem lịch →</button></div>
+    ${todayBk.length?todayBk.map(b=>{const r=ROOMS.find(r=>r.id===b.room);return`<div class="booking-item"><div style="flex:1"><div class="booking-who">${r?r.name:''} • ${custName(b.custId)}</div><div class="booking-what">${b.purpose}</div></div><div class="booking-time">${b.start} — ${b.end}</div></div>`}).join(''):`<div class="empty">Chưa có lịch đặt hôm nay.</div>`}
+  </div>
+  `;
+}
+
+/* ============== KHÁCH HÀNG ============== */
+function renderCust(){
+  let list=DB.customers.slice();
+  const q=UI.cust.q.toLowerCase().trim();
+  if(q)list=list.filter(c=>(c.name+c.id+c.phone+c.company+c.email).toLowerCase().includes(q));
+  if(UI.cust.pkg)list=list.filter(c=>c.package===UI.cust.pkg);
+  if(UI.cust.status)list=list.filter(c=>c.status===UI.cust.status);
+  const k=UI.cust.sort.k,d=UI.cust.sort.d;
+  list.sort((a,b)=>{let va=a[k],vb=b[k];if(typeof va==='string'){return va.localeCompare(vb)*d}return(va-vb)*d});
+  const total=list.length;
+  const totalPages=Math.max(1,Math.ceil(total/UI.cust.per));
+  if(UI.cust.page>totalPages)UI.cust.page=totalPages;
+  const pageList=list.slice((UI.cust.page-1)*UI.cust.per,UI.cust.page*UI.cust.per);
+  const statusLabel={active:'Đang thuê',expiring:'Sắp hết hạn',paused:'Tạm ngưng',ended:'Đã kết thúc'};
+  const statusClass={active:'b-green',expiring:'b-amber',paused:'b-gray',ended:'b-red'};
+
+  return`
+  <div class="page-head">
+    <div><h1 class="page-title">Khách hàng</h1><div class="page-sub">${total} / ${DB.customers.length} khách hàng</div></div>
+    <button class="btn btn-primary" onclick="custForm()">+ Thêm khách hàng</button>
+  </div>
+  <div class="card">
+    <div class="toolbar">
+      <input type="search" placeholder="🔍 Tìm theo tên, mã, SĐT, email, công ty..." value="${UI.cust.q}" oninput="UI.cust.q=this.value;UI.cust.page=1;render()">
+      <select onchange="UI.cust.pkg=this.value;UI.cust.page=1;render()">
+        <option value="">Tất cả gói</option>
+        ${Object.entries(PACKAGES).map(([k,v])=>`<option value="${k}" ${UI.cust.pkg===k?'selected':''}>${v.name}</option>`).join('')}
+      </select>
+      <select onchange="UI.cust.status=this.value;UI.cust.page=1;render()">
+        <option value="">Tất cả trạng thái</option>
+        ${Object.entries(statusLabel).map(([k,v])=>`<option value="${k}" ${UI.cust.status===k?'selected':''}>${v}</option>`).join('')}
+      </select>
+      <button class="btn btn-ghost btn-sm" onclick="exportCust()">⬇ Xuất CSV</button>
+    </div>
+    <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th onclick="sortCust('id')" style="cursor:pointer">Mã</th>
+        <th onclick="sortCust('name')" style="cursor:pointer">Khách hàng</th>
+        <th>Công ty</th>
+        <th>Gói</th>
+        <th>Chỗ ngồi</th>
+        <th>Phí/tháng</th>
+        <th>Hết hạn</th>
+        <th>Trạng thái</th>
+        <th style="text-align:right">Hành động</th>
+      </tr></thead>
+      <tbody>
+      ${pageList.length?pageList.map(c=>`
+        <tr>
+          <td class="mono">${c.id}</td>
+          <td><div class="cust-cell">${avatar(c.name,c.id)}<div><div class="cust-name">${c.name}</div><div class="cust-sub">${c.phone}</div></div></div></td>
+          <td><div style="font-size:13px">${c.company}</div><div class="cust-sub">${c.email}</div></td>
+          <td><span class="sel-pkg ${PACKAGES[c.package].color}">${PACKAGES[c.package].name}</span></td>
+          <td class="mono">${c.seat||'—'}</td>
+          <td class="mono">${fmtVND(c.fee)}</td>
+          <td class="mono">${fmtDate(c.end)}</td>
+          <td><span class="badge ${statusClass[c.status]}">${statusLabel[c.status]}</span></td>
+          <td style="text-align:right">
+            <button class="btn btn-sm btn-ghost" onclick="custDetail('${c.id}')">Xem</button>
+            <button class="btn btn-sm btn-ghost" onclick="custForm('${c.id}')">Sửa</button>
+          </td>
+        </tr>`).join(''):`<tr><td colspan="9" class="empty">Không tìm thấy khách hàng nào.</td></tr>`}
+      </tbody>
+    </table>
+    </div>
+    <div class="pagination">
+      <div class="info">Hiển thị ${(UI.cust.page-1)*UI.cust.per+1}–${Math.min(UI.cust.page*UI.cust.per,total)} trên ${total}</div>
+      <button class="btn btn-sm btn-ghost" ${UI.cust.page<=1?'disabled':''} onclick="UI.cust.page--;render()">‹</button>
+      <span class="mono">${UI.cust.page}/${totalPages}</span>
+      <button class="btn btn-sm btn-ghost" ${UI.cust.page>=totalPages?'disabled':''} onclick="UI.cust.page++;render()">›</button>
+    </div>
+  </div>`;
+}
+function sortCust(k){if(UI.cust.sort.k===k)UI.cust.sort.d*=-1;else{UI.cust.sort.k=k;UI.cust.sort.d=1}render()}
+
+function custForm(id){
+  const c=id?cust(id):{id:'KH'+String(DB.customers.length+1).padStart(3,'0'),name:'',phone:'',email:'',company:'',package:'hot',seat:'',fee:PACKAGES.hot.price,start:today(),end:'',status:'active',deposit:0,note:''};
+  openModal(id?'Sửa khách hàng':'Thêm khách hàng',`
+    <div class="form-row">
+      <div class="form-group"><label>Mã KH</label><input id="f_id" value="${c.id}" ${id?'readonly':''}></div>
+      <div class="form-group"><label>Họ và tên *</label><input id="f_name" value="${c.name}" required></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Điện thoại</label><input id="f_phone" value="${c.phone}"></div>
+      <div class="form-group"><label>Email</label><input id="f_email" type="email" value="${c.email}"></div>
+    </div>
+    <div class="form-group" style="margin-bottom:12px"><label>Công ty</label><input id="f_company" value="${c.company}"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Gói dịch vụ</label>
+        <select id="f_pkg" onchange="document.getElementById('f_fee').value=({hot:${PACKAGES.hot.price},ded:${PACKAGES.ded.price},priv:${PACKAGES.priv.price},virt:${PACKAGES.virt.price}})[this.value]">
+          ${Object.entries(PACKAGES).map(([k,v])=>`<option value="${k}" ${c.package===k?'selected':''}>${v.name} — ${fmtVND(v.price)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Chỗ ngồi</label><input id="f_seat" value="${c.seat||''}" placeholder="VD: S005"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Phí hàng tháng (VND)</label><input id="f_fee" type="number" value="${c.fee}"></div>
+      <div class="form-group"><label>Tiền cọc (VND)</label><input id="f_deposit" type="number" value="${c.deposit||0}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Ngày bắt đầu</label><input id="f_start" type="date" value="${c.start}"></div>
+      <div class="form-group"><label>Ngày hết hạn</label><input id="f_end" type="date" value="${c.end}"></div>
+      <div class="form-group"><label>Trạng thái</label>
+        <select id="f_status">
+          <option value="active" ${c.status==='active'?'selected':''}>Đang thuê</option>
+          <option value="expiring" ${c.status==='expiring'?'selected':''}>Sắp hết hạn</option>
+          <option value="paused" ${c.status==='paused'?'selected':''}>Tạm ngưng</option>
+          <option value="ended" ${c.status==='ended'?'selected':''}>Đã kết thúc</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Ghi chú</label><textarea id="f_note">${c.note||''}</textarea></div>
+  `,`
+    ${id?`<button class="btn btn-red" onclick="custDelete('${id}')">Xoá</button>`:''}
+    <button class="btn btn-ghost" onclick="closeModal()">Huỷ</button>
+    <button class="btn btn-primary" onclick="custSave('${id||''}')">${id?'Lưu':'Thêm mới'}</button>
+  `);
+}
+async function custSave(id){
+  const data={
+    id:document.getElementById('f_id').value.trim(),
+    name:document.getElementById('f_name').value.trim(),
+    phone:document.getElementById('f_phone').value.trim(),
+    email:document.getElementById('f_email').value.trim(),
+    company:document.getElementById('f_company').value.trim(),
+    package:document.getElementById('f_pkg').value,
+    seat:document.getElementById('f_seat').value.trim(),
+    fee:+document.getElementById('f_fee').value||0,
+    deposit:+document.getElementById('f_deposit').value||0,
+    start:document.getElementById('f_start').value,
+    end:document.getElementById('f_end').value,
+    status:document.getElementById('f_status').value,
+    note:document.getElementById('f_note').value.trim()
+  };
+  if(!data.name){toast('Vui lòng nhập tên','err');return}
+  if(!id&&DB.customers.find(c=>c.id===data.id)){toast('Mã KH đã tồn tại','err');return}
+  const {error}=await SB.from('customers').upsert(M_CUST.toDb(data));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('customers');
+  closeModal();render();toast(id?'Đã cập nhật':'Đã thêm khách hàng');
+}
+async function custDelete(id){
+  if(!confirm('Xoá khách hàng này? Hành động không thể hoàn tác.'))return;
+  const {error}=await SB.from('customers').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('customers');closeModal();render();toast('Đã xoá');
+}
+function custDetail(id){
+  const c=cust(id);if(!c)return;
+  const incL=DB.income.filter(i=>i.custId===id).sort((a,b)=>b.date.localeCompare(a.date));
+  const bkL=DB.bookings.filter(b=>b.custId===id).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  const totalRev=incL.reduce((s,i)=>s+i.amount,0);
+  openModal('Chi tiết: '+c.name,`
+    <div class="form-row">
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Mã</div><div class="mono" style="font-weight:600">${c.id}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Gói</div><div><span class="sel-pkg ${PACKAGES[c.package].color}">${PACKAGES[c.package].name}</span></div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Chỗ ngồi</div><div class="mono">${c.seat||'—'}</div></div>
+    </div>
+    <div class="form-row">
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Điện thoại</div><div>${c.phone}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Email</div><div>${c.email}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Công ty</div><div>${c.company}</div></div>
+    </div>
+    <div class="form-row">
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Bắt đầu</div><div>${fmtDate(c.start)}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Hết hạn</div><div>${fmtDate(c.end)}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Phí tháng</div><div class="mono amt-in">${fmtVND(c.fee)}</div></div>
+      <div><div style="font-size:11px;color:var(--tx3);text-transform:uppercase;font-weight:600">Tổng đã đóng</div><div class="mono amt-in">${fmtVND(totalRev)}</div></div>
+    </div>
+    ${c.note?`<div style="margin-top:8px;padding:10px;background:var(--bg2);border-radius:8px;font-size:13px">📝 ${c.note}</div>`:''}
+    <h4 style="margin:16px 0 8px;font-size:13px">Lịch sử đóng phí (${incL.length})</h4>
+    <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Loại</th><th style="text-align:right">Số tiền</th></tr></thead><tbody>
+    ${incL.slice(0,10).map(i=>`<tr><td class="mono">${fmtDate(i.date)}</td><td>${INC_CAT[i.cat]}</td><td class="mono amt-in" style="text-align:right">${fmtVND(i.amount)}</td></tr>`).join('')||'<tr><td colspan="3" class="empty">Chưa có giao dịch.</td></tr>'}
+    </tbody></table></div>
+    <h4 style="margin:16px 0 8px;font-size:13px">Lượt đặt phòng họp gần đây (${bkL.length})</h4>
+    <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Giờ</th><th>Phòng</th><th>Mục đích</th></tr></thead><tbody>
+    ${bkL.map(b=>{const r=ROOMS.find(r=>r.id===b.room);return`<tr><td class="mono">${fmtDate(b.date)}</td><td class="mono">${b.start}–${b.end}</td><td>${r?r.name:''}</td><td>${b.purpose}</td></tr>`}).join('')||'<tr><td colspan="4" class="empty">Chưa có lượt đặt.</td></tr>'}
+    </tbody></table></div>
+  `,`<button class="btn btn-ghost" onclick="closeModal()">Đóng</button><button class="btn btn-primary" onclick="closeModal();custForm('${c.id}')">Sửa</button>`);
+}
+function exportCust(){
+  const rows=[['Mã','Họ tên','SĐT','Email','Công ty','Gói','Chỗ ngồi','Phí/tháng','Bắt đầu','Hết hạn','Trạng thái']];
+  DB.customers.forEach(c=>rows.push([c.id,c.name,c.phone,c.email,c.company,PACKAGES[c.package].name,c.seat,c.fee,c.start,c.end,c.status]));
+  const csv='\uFEFF'+rows.map(r=>r.map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=`khach-hang-${today()}.csv`;a.click();toast('Đã xuất CSV');
+}
+
+/* ============== TÀI CHÍNH ============== */
+function renderFin(){
+  const tab=UI.fin.tab;
+  const tm=thisMonth();
+  const mon=UI.fin.month||tm;
+  let incs=DB.income.filter(i=>monthKey(i.date)===mon).sort((a,b)=>b.date.localeCompare(a.date));
+  let exps=DB.expense.filter(e=>monthKey(e.date)===mon).sort((a,b)=>b.date.localeCompare(a.date));
+  const totalIn=incs.reduce((s,i)=>s+i.amount,0);
+  const totalOut=exps.reduce((s,i)=>s+i.amount,0);
+  const profit=totalIn-totalOut;
+
+  /* Month selector options */
+  const allMonths=new Set();
+  [...DB.income,...DB.expense].forEach(x=>allMonths.add(monthKey(x.date)));
+  const monOpts=[...allMonths].sort().reverse();
+
+  /* Category breakdown */
+  const incByCat={};incs.forEach(i=>incByCat[i.cat]=(incByCat[i.cat]||0)+i.amount);
+  const expByCat={};exps.forEach(e=>expByCat[e.cat]=(expByCat[e.cat]||0)+e.amount);
+
+  return`
+  <div class="page-head">
+    <div><h1 class="page-title">Tài chính</h1><div class="page-sub">Theo dõi thu chi ${mon.slice(5)}/${mon.slice(0,4)}</div></div>
+    <div style="display:flex;gap:8px">
+      <select onchange="UI.fin.month=this.value;render()">${monOpts.map(m=>`<option value="${m}" ${m===mon?'selected':''}>Tháng ${m.slice(5)}/${m.slice(0,4)}</option>`).join('')}</select>
+      <button class="btn btn-primary" onclick="${tab==='income'?`incForm()`:`expForm()`}">+ Thêm ${tab==='income'?'khoản thu':'khoản chi'}</button>
+    </div>
+  </div>
+
+  <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
+    <div class="kpi"><div class="kpi-label">Tổng thu</div><div class="kpi-value amt-in">${fmtVND(totalIn)}</div><div class="kpi-note">${incs.length} giao dịch</div></div>
+    <div class="kpi"><div class="kpi-label">Tổng chi</div><div class="kpi-value amt-out">${fmtVND(totalOut)}</div><div class="kpi-note">${exps.length} khoản</div></div>
+    <div class="kpi"><div class="kpi-label">Chênh lệch</div><div class="kpi-value" style="color:${profit>=0?'var(--green-tx)':'var(--red-tx)'}">${fmtVND(profit)}</div><div class="kpi-note">Biên ${totalIn?Math.round(profit/totalIn*100):0}%</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tabs">
+      <button class="tab ${tab==='income'?'active':''}" onclick="UI.fin.tab='income';render()">📈 Thu (${incs.length})</button>
+      <button class="tab ${tab==='expense'?'active':''}" onclick="UI.fin.tab='expense';render()">📉 Chi (${exps.length})</button>
+      <button class="tab ${tab==='report'?'active':''}" onclick="UI.fin.tab='report';render()">📊 Báo cáo</button>
+    </div>
+    ${tab==='income'?renderIncTable(incs):tab==='expense'?renderExpTable(exps):renderFinReport(incByCat,expByCat,totalIn,totalOut)}
+  </div>`;
+}
+function renderIncTable(list){
+  return`<div class="table-wrap"><table>
+    <thead><tr><th>Mã</th><th>Ngày</th><th>Khách hàng</th><th>Loại</th><th>Phương thức</th><th style="text-align:right">Số tiền</th><th>Ghi chú</th><th></th></tr></thead>
+    <tbody>${list.length?list.map(i=>{const c=cust(i.custId);return`
+      <tr>
+        <td class="mono">${i.id}</td>
+        <td class="mono">${fmtDate(i.date)}</td>
+        <td>${c?`<div class="cust-cell">${avatar(c.name,c.id)}<div><div class="cust-name">${c.name}</div><div class="cust-sub">${c.id}</div></div></div>`:'—'}</td>
+        <td><span class="badge b-blue">${INC_CAT[i.cat]||i.cat}</span></td>
+        <td>${({bank:'Chuyển khoản',cash:'Tiền mặt',momo:'MoMo'})[i.method]||i.method}</td>
+        <td class="mono amt-in" style="text-align:right">${fmtVND(i.amount)}</td>
+        <td>${i.note||''}</td>
+        <td><button class="btn btn-sm btn-ghost" onclick="incForm('${i.id}')">Sửa</button></td>
+      </tr>`}).join(''):`<tr><td colspan="8" class="empty">Chưa có giao dịch thu trong tháng này.</td></tr>`}</tbody>
+  </table></div>`;
+}
+function renderExpTable(list){
+  return`<div class="table-wrap"><table>
+    <thead><tr><th>Mã</th><th>Ngày</th><th>Danh mục</th><th>Mô tả</th><th>Người chi</th><th style="text-align:right">Số tiền</th><th></th></tr></thead>
+    <tbody>${list.length?list.map(e=>`
+      <tr>
+        <td class="mono">${e.id}</td>
+        <td class="mono">${fmtDate(e.date)}</td>
+        <td><span class="badge b-red">${EXP_CAT[e.cat]||e.cat}</span></td>
+        <td>${e.note||''}</td>
+        <td>${e.by||''}</td>
+        <td class="mono amt-out" style="text-align:right">${fmtVND(e.amount)}</td>
+        <td><button class="btn btn-sm btn-ghost" onclick="expForm('${e.id}')">Sửa</button></td>
+      </tr>`).join(''):`<tr><td colspan="7" class="empty">Chưa có khoản chi trong tháng này.</td></tr>`}</tbody>
+  </table></div>`;
+}
+function renderFinReport(incByCat,expByCat,totalIn,totalOut){
+  return`
+    <div class="split">
+      <div>
+        <h4 style="margin-bottom:10px;font-size:13px">Cơ cấu thu</h4>
+        ${Object.entries(incByCat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span>${INC_CAT[k]}</span><span class="mono amt-in">${fmtVND(v)} (${totalIn?Math.round(v/totalIn*100):0}%)</span></div>
+            <div style="background:var(--bd1);height:8px;border-radius:4px;overflow:hidden"><div style="background:var(--green);height:100%;width:${totalIn?v/totalIn*100:0}%"></div></div>
+          </div>`).join('')||'<div class="empty">Không có dữ liệu.</div>'}
+      </div>
+      <div>
+        <h4 style="margin-bottom:10px;font-size:13px">Cơ cấu chi</h4>
+        ${Object.entries(expByCat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`
+          <div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px"><span>${EXP_CAT[k]}</span><span class="mono amt-out">${fmtVND(v)} (${totalOut?Math.round(v/totalOut*100):0}%)</span></div>
+            <div style="background:var(--bd1);height:8px;border-radius:4px;overflow:hidden"><div style="background:var(--red);height:100%;width:${totalOut?v/totalOut*100:0}%"></div></div>
+          </div>`).join('')||'<div class="empty">Không có dữ liệu.</div>'}
+      </div>
+    </div>
+  `;
+}
+function incForm(id){
+  const i=id?DB.income.find(x=>x.id===id):{id:'TH'+String(DB.income.length+1).padStart(4,'0'),date:today(),custId:'',cat:'rent',amount:0,method:'bank',note:''};
+  openModal(id?'Sửa khoản thu':'Thêm khoản thu',`
+    <div class="form-row">
+      <div class="form-group"><label>Mã</label><input id="i_id" value="${i.id}" ${id?'readonly':''}></div>
+      <div class="form-group"><label>Ngày</label><input id="i_date" type="date" value="${i.date}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Khách hàng</label>
+        <select id="i_cust"><option value="">— Chọn —</option>
+          ${DB.customers.map(c=>`<option value="${c.id}" ${i.custId===c.id?'selected':''}>${c.id} — ${c.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label>Loại</label>
+        <select id="i_cat">${Object.entries(INC_CAT).map(([k,v])=>`<option value="${k}" ${i.cat===k?'selected':''}>${v}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Số tiền (VND)</label><input id="i_amt" type="number" value="${i.amount}"></div>
+      <div class="form-group"><label>Phương thức</label>
+        <select id="i_method">
+          <option value="bank" ${i.method==='bank'?'selected':''}>Chuyển khoản</option>
+          <option value="cash" ${i.method==='cash'?'selected':''}>Tiền mặt</option>
+          <option value="momo" ${i.method==='momo'?'selected':''}>MoMo</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label>Ghi chú</label><input id="i_note" value="${i.note||''}"></div>
+  `,`
+    ${id?`<button class="btn btn-red" onclick="incDelete('${id}')">Xoá</button>`:''}
+    <button class="btn btn-ghost" onclick="closeModal()">Huỷ</button>
+    <button class="btn btn-primary" onclick="incSave('${id||''}')">${id?'Lưu':'Thêm'}</button>
+  `);
+}
+async function incSave(id){
+  const d={id:document.getElementById('i_id').value.trim(),date:document.getElementById('i_date').value,custId:document.getElementById('i_cust').value,cat:document.getElementById('i_cat').value,amount:+document.getElementById('i_amt').value||0,method:document.getElementById('i_method').value,note:document.getElementById('i_note').value};
+  if(!d.amount){toast('Nhập số tiền','err');return}
+  const {error}=await SB.from('income').upsert(M_INC.toDb(d));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('income');closeModal();render();toast('Đã lưu');
+}
+async function incDelete(id){
+  if(!confirm('Xoá khoản thu này?'))return;
+  const {error}=await SB.from('income').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('income');closeModal();render();toast('Đã xoá');
+}
+function expForm(id){
+  const e=id?DB.expense.find(x=>x.id===id):{id:'TC'+String(DB.expense.length+1).padStart(4,'0'),date:today(),cat:'other',amount:0,note:'',by:'Admin'};
+  openModal(id?'Sửa khoản chi':'Thêm khoản chi',`
+    <div class="form-row">
+      <div class="form-group"><label>Mã</label><input id="e_id" value="${e.id}" ${id?'readonly':''}></div>
+      <div class="form-group"><label>Ngày</label><input id="e_date" type="date" value="${e.date}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Danh mục</label>
+        <select id="e_cat">${Object.entries(EXP_CAT).map(([k,v])=>`<option value="${k}" ${e.cat===k?'selected':''}>${v}</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label>Số tiền (VND)</label><input id="e_amt" type="number" value="${e.amount}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Người chi</label><input id="e_by" value="${e.by||''}"></div>
+      <div class="form-group"><label>Mô tả</label><input id="e_note" value="${e.note||''}"></div>
+    </div>
+  `,`
+    ${id?`<button class="btn btn-red" onclick="expDelete('${id}')">Xoá</button>`:''}
+    <button class="btn btn-ghost" onclick="closeModal()">Huỷ</button>
+    <button class="btn btn-primary" onclick="expSave('${id||''}')">${id?'Lưu':'Thêm'}</button>
+  `);
+}
+async function expSave(id){
+  const d={id:document.getElementById('e_id').value.trim(),date:document.getElementById('e_date').value,cat:document.getElementById('e_cat').value,amount:+document.getElementById('e_amt').value||0,note:document.getElementById('e_note').value,by:document.getElementById('e_by').value};
+  if(!d.amount){toast('Nhập số tiền','err');return}
+  const {error}=await SB.from('expense').upsert(M_EXP.toDb(d));
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('expense');closeModal();render();toast('Đã lưu');
+}
+async function expDelete(id){
+  if(!confirm('Xoá khoản chi này?'))return;
+  const {error}=await SB.from('expense').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('expense');closeModal();render();toast('Đã xoá');
+}
+
+/* ============== PHÒNG HỌP ============== */
+function renderMR(){
+  const d=new Date(UI.mr.date);
+  const y=d.getFullYear(),m=d.getMonth();
+  const first=new Date(y,m,1),last=new Date(y,m+1,0);
+  const startDay=(first.getDay()+6)%7;
+  const days=[];
+  for(let i=0;i<startDay;i++){const dd=new Date(y,m,-(startDay-1-i));days.push({d:dd,other:true})}
+  for(let i=1;i<=last.getDate();i++)days.push({d:new Date(y,m,i),other:false});
+  while(days.length<42){const dd=new Date(days[days.length-1].d);dd.setDate(dd.getDate()+1);days.push({d:dd,other:true})}
+
+  const roomBk=UI.mr.room?DB.bookings.filter(b=>b.room===UI.mr.room):DB.bookings;
+  const byDate={};roomBk.forEach(b=>{if(!byDate[b.date])byDate[b.date]=[];byDate[b.date].push(b)});
+  const sel=UI.mr.date,selBk=(byDate[sel]||[]).sort((a,b)=>a.start.localeCompare(b.start));
+
+  /* KPIs */
+  const tm=thisMonth();
+  const mBk=DB.bookings.filter(b=>monthKey(b.date)===tm);
+  const byRoom={};ROOMS.forEach(r=>byRoom[r.id]=mBk.filter(b=>b.room===r.id).length);
+  const totalHours=mBk.reduce((s,b)=>{const a=+b.start.slice(0,2),c=+b.end.slice(0,2);return s+(c-a)},0);
+
+  return`
+  <div class="page-head">
+    <div><h1 class="page-title">Phòng họp</h1><div class="page-sub">Quản lý đặt phòng</div></div>
+    <button class="btn btn-primary" onclick="bkForm()">+ Đặt phòng</button>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><div class="kpi-label">Lượt đặt tháng</div><div class="kpi-value">${mBk.length}</div><div class="kpi-note">${totalHours} giờ</div></div>
+    ${ROOMS.map(r=>`<div class="kpi"><div class="kpi-label">${r.name}</div><div class="kpi-value">${byRoom[r.id]||0}</div><div class="kpi-note">Sức chứa ${r.cap} người</div></div>`).join('')}
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="mrNav(-1)">‹</button>
+        <strong style="font-size:15px">Tháng ${m+1}/${y}</strong>
+        <button class="btn btn-ghost btn-sm" onclick="mrNav(1)">›</button>
+        <button class="btn btn-ghost btn-sm" onclick="UI.mr.date=today();render()">Hôm nay</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <select onchange="UI.mr.room=this.value;render()">
+          <option value="">Tất cả phòng</option>
+          ${ROOMS.map(r=>`<option value="${r.id}" ${UI.mr.room===r.id?'selected':''}>${r.name}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="calendar">
+      ${['T2','T3','T4','T5','T6','T7','CN'].map(d=>`<div class="cal-head">${d}</div>`).join('')}
+      ${days.map(x=>{
+        const ds=toLocalISO(x.d);
+        const bks=byDate[ds]||[];
+        const isToday=ds===today();
+        const isSel=ds===sel;
+        return`<div class="cal-day ${x.other?'other':''} ${isToday?'today':''} ${bks.length?'has':''}" style="${isSel&&!isToday?'border-color:var(--blue);background:var(--blue-bg)':''}" onclick="UI.mr.date='${ds}';render()">
+          <div class="cal-date">${x.d.getDate()}</div>
+          ${bks.length?`<div class="cal-count">${bks.length} lượt</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">Đặt phòng ngày ${fmtDate(sel)}</div><span class="badge b-blue">${selBk.length} lượt</span></div>
+    ${selBk.length?selBk.map(b=>{const r=ROOMS.find(r=>r.id===b.room);const c=cust(b.custId);return`
+      <div class="booking-item">
+        <div style="flex:1">
+          <div class="booking-who">${r?r.name:''} • ${c?c.name:'—'} <span class="badge b-gray" style="margin-left:4px">${c?c.id:''}</span></div>
+          <div class="booking-what">${b.purpose}</div>
+        </div>
+        <div class="booking-time">${b.start} — ${b.end}</div>
+        <button class="btn btn-sm btn-ghost" onclick="bkForm('${b.id}')">Sửa</button>
+      </div>`}).join(''):'<div class="empty">Chưa có lịch đặt. Nhấn "+ Đặt phòng" để thêm.</div>'}
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div class="card-title">Lịch sắp tới (7 ngày)</div></div>
+    <div class="table-wrap"><table><thead><tr><th>Ngày</th><th>Giờ</th><th>Phòng</th><th>Khách hàng</th><th>Mục đích</th><th></th></tr></thead><tbody>
+    ${(()=>{const d0=new Date(),d7=new Date();d7.setDate(d7.getDate()+7);return DB.bookings.filter(b=>{const bd=new Date(b.date);return bd>=d0&&bd<=d7}).sort((a,b)=>a.date===b.date?a.start.localeCompare(b.start):a.date.localeCompare(b.date)).slice(0,15).map(b=>{const r=ROOMS.find(r=>r.id===b.room);const c=cust(b.custId);return`<tr><td class="mono">${fmtDate(b.date)}</td><td class="mono">${b.start}–${b.end}</td><td>${r?r.name:''}</td><td>${c?c.name:''}</td><td>${b.purpose}</td><td><button class="btn btn-sm btn-ghost" onclick="bkForm('${b.id}')">Sửa</button></td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Không có lịch 7 ngày tới.</td></tr>'})()}
+    </tbody></table></div>
+  </div>`;
+}
+function mrNav(dir){const d=new Date(UI.mr.date);d.setMonth(d.getMonth()+dir);UI.mr.date=toLocalISO(d);render()}
+
+function bkForm(id){
+  const b=id?DB.bookings.find(x=>x.id===id):{id:'BK'+String(DB.bookings.length+1).padStart(4,'0'),date:UI.mr.date,start:'09:00',end:'10:00',room:UI.mr.room||'MR1',custId:'',purpose:'',status:'booked'};
+  openModal(id?'Sửa lịch đặt':'Đặt phòng họp',`
+    <div class="form-row">
+      <div class="form-group"><label>Mã</label><input id="b_id" value="${b.id}" ${id?'readonly':''}></div>
+      <div class="form-group"><label>Ngày *</label><input id="b_date" type="date" value="${b.date}"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Phòng</label>
+        <select id="b_room">${ROOMS.map(r=>`<option value="${r.id}" ${b.room===r.id?'selected':''}>${r.name} (${r.cap} người)</option>`).join('')}</select>
+      </div>
+      <div class="form-group"><label>Khách hàng</label>
+        <select id="b_cust"><option value="">— Chọn —</option>${DB.customers.map(c=>`<option value="${c.id}" ${b.custId===c.id?'selected':''}>${c.id} — ${c.name}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Bắt đầu</label><input id="b_start" type="time" value="${b.start}"></div>
+      <div class="form-group"><label>Kết thúc</label><input id="b_end" type="time" value="${b.end}"></div>
+    </div>
+    <div class="form-group"><label>Mục đích</label><input id="b_purpose" value="${b.purpose||''}" placeholder="VD: Họp nội bộ, Gặp khách..."></div>
+  `,`
+    ${id?`<button class="btn btn-red" onclick="bkDelete('${id}')">Xoá</button>`:''}
+    <button class="btn btn-ghost" onclick="closeModal()">Huỷ</button>
+    <button class="btn btn-primary" onclick="bkSave('${id||''}')">${id?'Lưu':'Đặt'}</button>
+  `);
+}
+async function bkSave(id){
+  const d={id:document.getElementById('b_id').value.trim(),date:document.getElementById('b_date').value,start:document.getElementById('b_start').value,end:document.getElementById('b_end').value,room:document.getElementById('b_room').value,custId:document.getElementById('b_cust').value,purpose:document.getElementById('b_purpose').value,status:'booked'};
+  if(!d.date||!d.start||!d.end){toast('Nhập ngày & giờ','err');return}
+  if(d.start>=d.end){toast('Giờ kết thúc phải sau bắt đầu','err');return}
+  const {error}=await SB.from('bookings').upsert(M_BK.toDb(d));
+  if(error){toast(error.message.includes('Trùng lịch')?'⚠️ '+error.message:'Lỗi: '+error.message,'err');return}
+  UI.mr.date=d.date;
+  await reloadSlice('bookings');closeModal();render();toast('Đã lưu lịch đặt');
+}
+async function bkDelete(id){
+  if(!confirm('Huỷ lịch đặt này?'))return;
+  const {error}=await SB.from('bookings').delete().eq('id',id);
+  if(error){toast('Lỗi: '+error.message,'err');return}
+  await reloadSlice('bookings');closeModal();render();toast('Đã huỷ');
+}
+
+/* ============== ADMIN ============== */
+function renderAdmin(){
+  const tab=UI.admin.tab;
+  return`
+  <div class="page-head">
+    <div><h1 class="page-title">Admin</h1><div class="page-sub">Cấu hình hệ thống</div></div>
+  </div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab ${tab==='packages'?'active':''}" onclick="UI.admin.tab='packages';render()">Gói dịch vụ</button>
+      <button class="tab ${tab==='seats'?'active':''}" onclick="UI.admin.tab='seats';render()">Chỗ ngồi & Phòng</button>
+      <button class="tab ${tab==='users'?'active':''}" onclick="UI.admin.tab='users';render()">Người dùng</button>
+      <button class="tab ${tab==='data'?'active':''}" onclick="UI.admin.tab='data';render()">Dữ liệu & Sao lưu</button>
+    </div>
+    ${tab==='packages'?renderPkgs():tab==='seats'?renderSeats():tab==='users'?renderUsers():renderDataMgmt()}
+  </div>`;
+}
+function renderPkgs(){
+  return`<div class="table-wrap"><table>
+    <thead><tr><th>Mã</th><th>Tên gói</th><th>Mô tả</th><th style="text-align:right">Giá/tháng</th><th>Số KH</th></tr></thead>
+    <tbody>${Object.entries(PACKAGES).map(([k,v])=>{const n=DB.customers.filter(c=>c.package===k&&c.status!=='ended').length;return`
+      <tr><td class="mono">${k}</td><td><span class="sel-pkg ${v.color}">${v.name}</span></td><td>${v.desc}</td><td class="mono" style="text-align:right">${fmtVND(v.price)}</td><td class="mono">${n}</td></tr>`}).join('')}</tbody>
+  </table></div>
+  <h4 style="margin:20px 0 10px;font-size:13px">Danh mục Thu</h4>
+  <div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên</th></tr></thead><tbody>
+  ${Object.entries(INC_CAT).map(([k,v])=>`<tr><td class="mono">${k}</td><td>${v}</td></tr>`).join('')}</tbody></table></div>
+  <h4 style="margin:20px 0 10px;font-size:13px">Danh mục Chi</h4>
+  <div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên</th></tr></thead><tbody>
+  ${Object.entries(EXP_CAT).map(([k,v])=>`<tr><td class="mono">${k}</td><td>${v}</td></tr>`).join('')}</tbody></table></div>
+  `;
+}
+function renderSeats(){
+  return`
+  <h4 style="margin-bottom:10px;font-size:13px">Phòng họp</h4>
+  <div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên phòng</th><th>Sức chứa</th><th style="text-align:right">Giá/giờ (ngoài gói)</th></tr></thead><tbody>
+  ${ROOMS.map(r=>`<tr><td class="mono">${r.id}</td><td>${r.name}</td><td class="mono">${r.cap} người</td><td class="mono" style="text-align:right">${fmtVND(r.rate)}</td></tr>`).join('')}
+  </tbody></table></div>
+  <h4 style="margin:20px 0 10px;font-size:13px">Chỗ ngồi (${DB.seats.length})</h4>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(80px,1fr));gap:6px">
+    ${DB.seats.map(s=>{const taken=DB.customers.find(c=>c.seat===s.id&&(c.status==='active'||c.status==='expiring'));return`<div style="padding:10px;text-align:center;background:${taken?'var(--red-bg)':'var(--green-bg)'};color:${taken?'var(--red-tx)':'var(--green-tx)'};border-radius:8px;font-size:12px;font-weight:600" title="${taken?taken.name:'Trống'}">${s.id}</div>`}).join('')}
+  </div>
+  <div style="margin-top:10px;font-size:12px;color:var(--tx3)">🟢 Trống &nbsp;&nbsp; 🔴 Đã thuê</div>`;
+}
+function renderUsers(){
+  const roleLabel={admin:'Quản trị',staff:'Nhân viên',accountant:'Kế toán'};
+  return`<div class="table-wrap"><table>
+    <thead><tr><th>Mã</th><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th></tr></thead>
+    <tbody>${DB.users.map(u=>`<tr><td class="mono">${u.id}</td><td>${u.name}</td><td>${u.email}</td><td><span class="badge b-purple">${roleLabel[u.role]||u.role}</span></td><td><span class="badge ${u.status==='active'?'b-green':'b-gray'}">${u.status==='active'?'Hoạt động':'Tạm khoá'}</span></td></tr>`).join('')}</tbody>
+  </table></div>`;
+}
+function renderDataMgmt(){
+  return`
+  <div class="form-row" style="grid-template-columns:1fr">
+    <div>
+      <h4 style="font-size:13px;margin-bottom:6px">☁️ Kết nối Supabase</h4>
+      <div style="padding:10px 12px;background:var(--green-bg);color:var(--green-tx);border-radius:8px;font-size:12px;margin-bottom:10px">
+        ✅ Đã kết nối: <strong>${SUPABASE_URL.replace('https://','')}</strong>
+      </div>
+      <p style="font-size:13px;color:var(--tx3);margin-bottom:10px">Dữ liệu lưu trên Supabase PostgreSQL. Trình duyệt giữ bản cache để hiển thị nhanh khi offline.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="loadDB().then(()=>{render();toast('Đã đồng bộ')})">🔄 Đồng bộ từ DB</button>
+        <button class="btn btn-ghost" onclick="exportData()">⬇ Xuất JSON backup</button>
+      </div>
+      <h4 style="font-size:13px;margin:20px 0 6px">📊 Thống kê dữ liệu</h4>
+      <div class="kpi-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr))">
+        <div class="kpi"><div class="kpi-label">Khách hàng</div><div class="kpi-value">${DB.customers.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Giao dịch thu</div><div class="kpi-value">${DB.income.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Khoản chi</div><div class="kpi-value">${DB.expense.length}</div></div>
+        <div class="kpi"><div class="kpi-label">Lượt đặt phòng</div><div class="kpi-value">${DB.bookings.length}</div></div>
+      </div>
+    </div>
+  </div>`;
+}
+function exportData(){const blob=new Blob([JSON.stringify(DB,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`tnc-office-backup-${today()}.json`;a.click();toast('Đã xuất backup')}
+
+/* ============== INIT ============== */
+document.addEventListener('DOMContentLoaded',async()=>{
+  const theme=localStorage.getItem('tnc_theme')||'light';
+  document.documentElement.setAttribute('data-theme',theme);
+  document.getElementById('themeIcon').textContent=theme==='dark'?'☀️':'🌙';
+  /* 1. Show cached data immediately (if any) */
+  if(loadCache())render();
+  else{document.getElementById('main').innerHTML='<div class="empty"><div class="empty-icon">⏳</div>Đang tải dữ liệu từ Supabase...</div>'}
+  /* 2. Fetch fresh from Supabase */
+  const ok=await loadDB();
+  if(ok){
+    if(DB.customers.length===0&&DB.seats.length===0){
+      document.getElementById('main').innerHTML=`<div class="card" style="max-width:720px;margin:40px auto"><h2 style="margin-bottom:12px">⚠️ Database trống hoặc bị RLS chặn</h2><p style="color:var(--tx2);margin-bottom:14px">Supabase trả về 0 bản ghi. Có 2 khả năng:</p><ol style="margin:0 0 14px 20px;color:var(--tx2);line-height:1.7"><li>Bạn chưa chạy file <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">tnc-office-supabase.sql</code> trong SQL Editor.</li><li>Bạn đã chạy rồi nhưng RLS đang chặn anon key — hãy chạy tiếp file <code style="background:var(--bg2);padding:2px 6px;border-radius:4px">tnc-office-supabase-patch.sql</code>.</li></ol><button class="btn btn-primary" onclick="location.reload()">🔄 Thử lại sau khi chạy SQL</button></div>`;
+      return;
+    }
+    render();
+  }
+});
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal()});
+</script>
+</body>
+</html>
